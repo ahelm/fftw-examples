@@ -30,23 +30,29 @@ def plot_line_data(data, symbol, label=""):
 @click.option("--columns", nargs=1, type=str, default=None)
 @click.option("--diff", nargs=1, type=str, default=None)
 @click.option("--log", default=False, is_flag=True)
-def main(fn, symbol, columns, diff, log):
+@click.option("--title", nargs=1, default="", type=str)
+def main(fn, symbol, columns, diff, log, title):
     for f in fn:
         data = load_file(f, column=columns)
+        flabel = f
 
         if diff:
             diff_data = load_file(diff, column=columns)
             data -= diff_data
+            flabel += " | " + diff
 
         if len(data.shape) > 1:
-            plot_multi_data(data, symbol, label=f)
+            plot_multi_data(data, symbol, label=flabel)
         else:
-            plot_line_data(data, symbol, label=f)
+            plot_line_data(data, symbol, label=flabel)
 
     plt.legend()
 
     if log:
         plt.yscale("log")
+
+    if title:
+        plt.title(title)
 
     plt.show()
 
