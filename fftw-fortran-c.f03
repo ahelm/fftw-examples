@@ -88,6 +88,10 @@ use FFTW3
 implicit none
 
   type :: fft_handler
+    integer :: in_len
+    integer :: out_len
+    integer :: fdim
+
     type(c_ptr) :: plan_forward
     type(c_ptr) :: plan_backward
 
@@ -97,6 +101,7 @@ implicit none
   contains
 
     procedure :: setup => setup_fft
+    procedure :: cleanup => cleanup_fft
     procedure :: forward => fft
     procedure :: backward => ifft
 
@@ -109,42 +114,53 @@ subroutine setup_fft(this, arr, fdim, n)
   implicit none
 
   class(fft_handler), intent(inout) :: this
-  real(kind=8), dimension(:, :), intent(inout) :: arr
+  real(kind=8), dimension(:, :), intent(inout), pointer :: arr
   integer, intent(in) :: fdim, n
 
   integer, dimension(2) :: shape_arr
   integer :: out_ub, ierr
 
+  ! store transform specific parameters
+  this%in_len = n
+  this%fdim = fdim
+
   ! create k-space field array
-  out_ub = n / 2 + 1
-  allocate(this%out_arr(1:fdim, 1:out_ub), stat=ierr)
+  this%out_len = this%in_len / 2 + 1
+  allocate(this%out_arr(1:this%fdim, 1:this%out_len), stat=ierr)
   if (ierr /= 0) then
     print *, "Allocation failed for this%out_arr"
     stop
   endif
 
-  ! create plans for
-  this%plan_forward = &
-    fftw_plan_dft_r2c_1d(n, arr, this%out_arr, FFTW_ESTIMATE)
-  this%plan_backward = &
-    fftw_plan_dft_c2r_1d(n, this%out_arr, arr, FFTW_ESTIMATE)
+  ! link outter array to
+  this%in_arr(1:, 1:) => arr(1:fdim, 1:n)
+
+  ! create plans
+  this%plan_forward = fftw_plan_dft_r2c_1d( &
+      n, this%in_arr(1,1:), this%out_arr(1,1:), FFTW_MEASURE &
+    )
+  this%plan_backward = fftw_plan_dft_c2r_1d( &
+      n, this%out_arr(1,1:), this%in_arr(1,1:), FFTW_MEASURE &
+    )
 end subroutine setup_fft
 
-subroutine cleanup_fft(fft_hndl)
+subroutine cleanup_fft(this)
 
   implicit none
 
-  type(fft_handler), intent(inout) :: fft_hndl
+  class(fft_handler), intent(inout) :: this
   integer :: ierr
 
-  call fftw_destroy_plan(fft_hndl%plan_forward)
-  call fftw_destroy_plan(fft_hndl%plan_backward)
+  call fftw_destroy_plan(this%plan_forward)
+  call fftw_destroy_plan(this%plan_backward)
 
-  deallocate(fft_hndl%out_arr, stat=ierr)
+  deallocate(this%out_arr, stat=ierr)
   if (ierr /= 0) then
-    print *, "Deallocation failed for fft_hndl%out_arr"
+    print *, "Deallocation failed for this%out_arr"
     stop
   endif
+
+  nullify(this%in_arr)
 
 end subroutine cleanup_fft
 
@@ -153,7 +169,13 @@ subroutine fft(this, arr)
   class(fft_handler), intent(inout) :: this
   real(kind=8), dimension(:,:), intent(inout) :: arr
 
-  call fftw_execute_dft_r2c(this%plan_forward, arr, this%out_arr)
+  integer :: f
+
+  do f = 1, this%fdim
+    call fftw_execute_dft_r2c( &
+        this%plan_forward, this%in_arr(f, 1:), this%out_arr(f, 1:) &
+      )
+  enddo
 end subroutine fft
 
 subroutine ifft(this, arr)
@@ -161,7 +183,13 @@ subroutine ifft(this, arr)
   class(fft_handler), intent(inout) :: this
   real(kind=8), dimension(:,:), intent(inout) :: arr
 
-  call fftw_execute_dft_c2r(this%plan_backward, this%out_arr, arr)
+  integer :: f
+
+  do f = 1, this%fdim
+    call fftw_execute_dft_c2r( &
+        this%plan_backward, this%out_arr(f, 1:), this%in_arr(f, 1:) &
+      )
+  enddo
 end subroutine ifft
 
 end module fft_utils
@@ -214,7 +242,7 @@ program fftw_fortran_c
   implicit none
 
   integer, parameter :: N = 512
-  integer, parameter :: fdim = 1
+  integer, parameter :: fdim = 3
 
   integer :: err
   integer :: left_bound, right_bound
@@ -234,7 +262,7 @@ program fftw_fortran_c
   call normalize(field_data, N)
   call store_arr(field_data, "fortran_post.txt")
 
-  call cleanup_fft(fft_hndl)
+  call fft_hndl%cleanup()
   call cleanup(field_data)
 
 end program fftw_fortran_c
