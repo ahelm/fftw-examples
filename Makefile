@@ -1,4 +1,4 @@
-CC=gcc
+CC=gcc-8
 FORTRAN=gfortran-8
 
 C_COMPILE = -std=c99 -g
