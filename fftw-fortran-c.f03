@@ -1,8 +1,11 @@
+!
+! HELPER -----------------------------------------------------------------------
 module helper
 
 implicit none
 
 real(kind=8), parameter :: PI = 3.14159265358979323846264338327950288
+real(kind=8), parameter :: RANDOMIZE_FACT = 0.01
 
 contains
 
@@ -17,20 +20,12 @@ subroutine create_signal(arr, n, fdim)
     arr(:, i) = sin(real(i - 1, kind=8) / real(n, kind=8) * PI) ** 2.0
   enddo
 
-  do i = lbound(arr, dim=2), 0
-    arr(:, i) = 0.5
-  enddo
-
-  do i = n+1, ubound(arr, dim=2)
-    arr(:, i) = 0.5
-  enddo
-
   ! randomize the data - does not need to be fully random
   call random_seed()
   do j = lbound(arr, dim=2), ubound(arr, dim=2)
     do i = lbound(arr, dim=1), ubound(arr, dim=1)
       call random_number(harvest)
-      arr(i, j) = arr(i, j) + 0.01 * harvest
+      arr(i, j) = arr(i, j) + RANDOMIZE_FACT * harvest
     enddo
   enddo
 end subroutine create_signal
@@ -58,25 +53,56 @@ subroutine store_arr(arr, file_name)
   endif
 end subroutine store_arr
 
-end module helper
+subroutine normalize(arr, N)
 
+  implicit none
+
+  real(kind=8), dimension(:, :), intent(inout) :: arr
+  integer, intent(in) :: N
+
+  integer :: i, f
+
+  do i = lbound(arr, dim=2), ubound(arr, dim=2)
+    do f = lbound(arr, dim=1), ubound(arr, dim=1)
+      arr(f, i) = arr(f, i) / real(N)
+    enddo
+  enddo
+
+end subroutine normalize
+
+end module helper
+! ------------------------------------------------------------------------------
+!
+! FFTW3 ------------------------------------------------------------------------
 module FFTW3
 use, intrinsic :: iso_c_binding
 include "fftw3.f03"
 end module FFTW3
-
+! ------------------------------------------------------------------------------
+!
+! FFT UTILS --------------------------------------------------------------------
 module fft_utils
 
 use FFTW3
 
 implicit none
 
-type :: fft_handler
-  type(c_ptr) :: plan_forward
-  type(c_ptr) :: plan_backward
-end type fft_handler
+  type :: fft_handler
+    type(c_ptr) :: plan_forward
+    type(c_ptr) :: plan_backward
+
+    real(kind=8), dimension(:,:), pointer :: in_arr
+    complex(c_double_complex), dimension(:,:), pointer :: out_arr
+
+  contains
+
+    procedure :: forward => fft
+    procedure :: backward => ifft
+
+  end type fft_handler
 
 contains
+
 subroutine setup_fft(arr, fdim, n, fft_hndl)
 
   implicit none
@@ -86,15 +112,21 @@ subroutine setup_fft(arr, fdim, n, fft_hndl)
   type(fft_handler), intent(inout) :: fft_hndl
 
   integer, dimension(2) :: shape_arr
-  integer :: out_dim, ierr
+  integer :: out_ub, ierr
 
   ! create k-space field array
-  out_dim = n / 2 + 1
-  allocate(fft_hndl%out_arr(1:fdim, 1:out_dim), stat=ierr)
+  out_ub = n / 2 + 1
+  allocate(fft_hndl%out_arr(1:fdim, 1:out_ub), stat=ierr)
   if (ierr /= 0) then
     print *, "Allocation failed for fft_hndl%out_arr"
     stop
   endif
+
+  ! create plans for
+  fft_hndl%plan_forward = &
+    fftw_plan_dft_r2c_1d(n, arr, fft_hndl%out_arr, FFTW_ESTIMATE)
+  fft_hndl%plan_backward = &
+    fftw_plan_dft_c2r_1d(n, fft_hndl%out_arr, arr, FFTW_ESTIMATE)
 end subroutine setup_fft
 
 subroutine cleanup_fft(fft_hndl)
@@ -115,63 +147,73 @@ subroutine cleanup_fft(fft_hndl)
 
 end subroutine cleanup_fft
 
-subroutine fft(fft_hndl)
+subroutine fft(this, arr)
   implicit none
-  type(fft_handler), intent(inout) :: fft_hndl
+  class(fft_handler), intent(inout) :: this
+  real(kind=8), dimension(:,:), intent(inout) :: arr
+
+  call fftw_execute_dft_r2c(this%plan_forward, arr, this%out_arr)
 end subroutine fft
 
-subroutine ifft(fft_hndl)
+subroutine ifft(this, arr)
   implicit none
-  type(fft_handler), intent(inout) :: fft_hndl
+  class(fft_handler), intent(inout) :: this
+  real(kind=8), dimension(:,:), intent(inout) :: arr
+
+  call fftw_execute_dft_c2r(this%plan_backward, this%out_arr, arr)
 end subroutine ifft
 
 end module fft_utils
-
+! ------------------------------------------------------------------------------
+!
+! ARRAY HELPERS ----------------------------------------------------------------
 module array_helpers
 
 implicit none
 
 contains
 
-subroutine setup(arr, fdim, n, bnd)
+subroutine setup(arr, fdim, n)
   implicit none
   real(kind=8), pointer, intent(inout) :: arr(:,:)
-  integer, intent(in) :: fdim, n, bnd
+  integer, intent(in) :: fdim, n
   integer :: ierr, lb, ub
-  lb = 1 - bnd
-  ub = n + bnd
-  allocate(arr(1:fdim, lb:ub), stat=ierr)
+
+  allocate(arr(1:fdim, 1:n), stat=ierr)
   if (ierr /= 0) then
     print *, "Allocation failed"
     stop
   endif
+
 end subroutine setup
 
 subroutine cleanup(arr)
   implicit none
   real(kind=8), pointer, intent(inout) :: arr(:,:)
   integer :: ierr
+
   deallocate(arr, stat=ierr)
   if (ierr /= 0) then
     print *, "Deallocation failed"
     stop
   endif
+
 end subroutine cleanup
 
 end module array_helpers
-
+! ------------------------------------------------------------------------------
+!
+! MAIN -------------------------------------------------------------------------
 program fftw_fortran_c
 
   use helper
   use fft_utils
   use array_helpers
 
-
   implicit none
 
   integer, parameter :: N = 512
-  integer, parameter :: boundaries = 4
-  integer, parameter :: fdim = 3
+  integer, parameter :: fdim = 1
 
   integer :: err
   integer :: left_bound, right_bound
@@ -179,16 +221,20 @@ program fftw_fortran_c
   real(kind=8), dimension(:,:), pointer :: field_data
   type(fft_handler) :: fft_hndl
 
-  call setup(field_data, fdim, N, boundaries)
+  call setup(field_data, fdim, N)
   call setup_fft(field_data, fdim, N, fft_hndl)
 
   call create_signal(field_data, N, fdim)
-  call store_arr(field_data, "signal_pre.txt")
+  call store_arr(field_data, "fortran_pre.txt")
 
-  call fft(fft_hndl)
-  call ifft(fft_hndl)
+  call fft_hndl%forward(field_data)
+  call fft_hndl%backward(field_data)
+
+  call normalize(field_data, N)
+  call store_arr(field_data, "fortran_post.txt")
 
   call cleanup_fft(fft_hndl)
   call cleanup(field_data)
 
 end program fftw_fortran_c
+! ------------------------------------------------------------------------------

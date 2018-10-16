@@ -13,11 +13,11 @@ GNUPLOT=gnuplot
 PYTHON=$(BASE_CONDA)/bin/python
 
 .PHONY: all
-all: plot-adv-interface plot-fftw-simple
+all: plot-adv-interface plot-fftw-simple plot-fftw-fortran-c
 
 .PHONY: clean
 clean:
-	@rm -rf bin/fftw-* *.mod adv_*.txt pre_*.txt
+	@rm -rf bin/fftw-* *.mod adv_*.txt pre_*.txt fortran_*.txt
 
 bin/fftw-simple: fftw-simple.c
 	$(CC) $(C_COMPILE) $(C_INCLUDE) $(C_LINK) -o bin/fftw-simple fftw-simple.c
@@ -43,4 +43,6 @@ bin/fftw-fortran-c: fftw-fortran-c.f03 fftw-fortran-interface.c
 .PHONY: plot-fftw-fortran-c
 plot-fftw-fortran-c: bin/fftw-fortran-c
 	@bin/fftw-fortran-c
-	@$(PYTHON) plot_files.py signal_pre.txt --log
+	@$(PYTHON) plot_files.py fortran_pre.txt --diff fortran_post.txt \
+		--title "Fortran interface (Diff)"
+	@rm fortran_*.txt
