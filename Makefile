@@ -34,7 +34,7 @@ bin/fftw-adv-interface: fftw-adv-interface.c
 .PHONY: plot-adv-interface
 plot-adv-interface: bin/fftw-adv-interface
 	@bin/fftw-adv-interface
-	@$(PYTHON) plot_files.py adv_*.txt --title "Advance interface"
+	@$(PYTHON) plot_files.py adv_pre.txt adv_post.txt --title "Advance interface"
 	@rm adv_*.txt
 
 bin/fftw-fortran-c: fftw-fortran-c.f03
