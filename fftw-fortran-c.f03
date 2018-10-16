@@ -96,6 +96,7 @@ implicit none
 
   contains
 
+    procedure :: setup => setup_fft
     procedure :: forward => fft
     procedure :: backward => ifft
 
@@ -103,30 +104,30 @@ implicit none
 
 contains
 
-subroutine setup_fft(arr, fdim, n, fft_hndl)
+subroutine setup_fft(this, arr, fdim, n)
 
   implicit none
 
+  class(fft_handler), intent(inout) :: this
   real(kind=8), dimension(:, :), intent(inout) :: arr
   integer, intent(in) :: fdim, n
-  type(fft_handler), intent(inout) :: fft_hndl
 
   integer, dimension(2) :: shape_arr
   integer :: out_ub, ierr
 
   ! create k-space field array
   out_ub = n / 2 + 1
-  allocate(fft_hndl%out_arr(1:fdim, 1:out_ub), stat=ierr)
+  allocate(this%out_arr(1:fdim, 1:out_ub), stat=ierr)
   if (ierr /= 0) then
-    print *, "Allocation failed for fft_hndl%out_arr"
+    print *, "Allocation failed for this%out_arr"
     stop
   endif
 
   ! create plans for
-  fft_hndl%plan_forward = &
-    fftw_plan_dft_r2c_1d(n, arr, fft_hndl%out_arr, FFTW_ESTIMATE)
-  fft_hndl%plan_backward = &
-    fftw_plan_dft_c2r_1d(n, fft_hndl%out_arr, arr, FFTW_ESTIMATE)
+  this%plan_forward = &
+    fftw_plan_dft_r2c_1d(n, arr, this%out_arr, FFTW_ESTIMATE)
+  this%plan_backward = &
+    fftw_plan_dft_c2r_1d(n, this%out_arr, arr, FFTW_ESTIMATE)
 end subroutine setup_fft
 
 subroutine cleanup_fft(fft_hndl)
@@ -222,7 +223,7 @@ program fftw_fortran_c
   type(fft_handler) :: fft_hndl
 
   call setup(field_data, fdim, N)
-  call setup_fft(field_data, fdim, N, fft_hndl)
+  call fft_hndl%setup(field_data, fdim, N)
 
   call create_signal(field_data, N, fdim)
   call store_arr(field_data, "fortran_pre.txt")
