@@ -103,7 +103,7 @@ int main(void)
       onembed,
       ostride,
       odist,
-      0);
+      FFTW_PATIENT);
 
   fftw_plan p_inv = fftw_plan_many_dft_c2r(
       rank,
@@ -117,10 +117,9 @@ int main(void)
       inembed,
       istride,
       idist,
-      0);
+      FFTW_PATIENT);
 
-  // create_signal(arr, field_dim, total_length, pad);
-  create_linear(arr, field_dim, total_length, pad);
+  create_signal(arr, field_dim, total_length, pad);
   store_array(arr, field_dim, len_1d, "adv_pre.txt");
 
   fftw_execute(p);

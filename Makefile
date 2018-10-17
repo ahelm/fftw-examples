@@ -34,8 +34,7 @@ bin/fftw-adv-interface: fftw-adv-interface.c
 .PHONY: plot-adv-interface
 plot-adv-interface: bin/fftw-adv-interface
 	@bin/fftw-adv-interface
-	@$(PYTHON) plot_files.py adv_pre.txt \
-		--diff adv_post.txt \
+	@$(PYTHON) plot_files.py adv_pre.txt adv_post.txt \
 		--marker "x" \
 		--linestyle "none" \
 		--title "Advance interface (Diff)"
