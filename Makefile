@@ -13,7 +13,7 @@ GNUPLOT=gnuplot
 PYTHON=$(BASE_CONDA)/bin/python
 
 .PHONY: all
-all: plot-adv-interface plot-fftw-simple plot-fftw-fortran-c
+all: plot-adv-interface-c plot-fftw-simple plot-fftw-fortran-c
 
 .PHONY: clean
 clean:
@@ -28,13 +28,14 @@ plot-fftw-simple: bin/fftw-simple
 	@$(PYTHON) plot_files.py pre_fft.txt post_fft.txt --title "Simple FFTW test"
 	@rm pre_fft.txt post_fft.txt
 
-bin/fftw-adv-interface: fftw-adv-interface.c
-	$(CC) $(C_COMPILE) $(C_INCLUDE) $(C_LINK) -o bin/fftw-adv-interface fftw-adv-interface.c
+bin/fftw-adv-interface-c: fftw-adv-interface-c.c
+	$(CC) $(C_COMPILE) $(C_INCLUDE) $(C_LINK) -o bin/fftw-adv-interface-c fftw-adv-interface-c.c
 
-.PHONY: plot-adv-interface
-plot-adv-interface: bin/fftw-adv-interface
-	@bin/fftw-adv-interface
-	@$(PYTHON) plot_files.py adv_pre.txt adv_post.txt \
+.PHONY: plot-adv-interface-c
+plot-adv-interface-c: bin/fftw-adv-interface-c
+	@bin/fftw-adv-interface-c
+	@$(PYTHON) plot_files.py adv_pre.txt \
+		--diff adv_post.txt \
 		--marker "x" \
 		--linestyle "none" \
 		--title "Advance interface (Diff)"
