@@ -47,6 +47,9 @@ bin/fftw-fortran-c: fftw-fortran-c.f03
 .PHONY: plot-fftw-fortran-c
 plot-fftw-fortran-c: bin/fftw-fortran-c
 	@bin/fftw-fortran-c
-	@$(PYTHON) plot_files.py fortran_pre.txt fortran_post.txt \
+	@$(PYTHON) plot_files.py fortran_pre.txt \
+		--diff fortran_post.txt \
+		--marker "x" \
+		--linestyle "none" \
 		--title "Fortran interface"
 	@rm fortran_*.txt

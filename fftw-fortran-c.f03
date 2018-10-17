@@ -5,14 +5,15 @@ module helper
 implicit none
 
 real(kind=8), parameter :: PI = 3.14159265358979323846264338327950288
-real(kind=8), parameter :: RANDOMIZE_FACT = 0.01
+real(kind=8), parameter :: NOISE_LEVEL = 1.0   ! in percent
+real(kind=8), parameter :: NOISE_MAX = 100.0
 
 contains
 
-subroutine create_signal(arr, n, fdim)
+subroutine create_signal(arr, n, fdim, pad)
   implicit none
   real(kind=8), dimension(:, :), pointer :: arr
-  integer, intent(in) :: n, fdim
+  integer, intent(in) :: n, fdim, pad
   integer :: i, j
   real :: harvest
 
@@ -20,21 +21,45 @@ subroutine create_signal(arr, n, fdim)
     arr(:, i) = sin(real(i - 1, kind=8) / real(n, kind=8) * PI) ** 2.0
   enddo
 
+  do i = 1 - pad, 1
+    arr(:, i) = 0.5
+  enddo
+
+  do i = n, n + pad
+    arr(:, i) = 0.5
+  enddo
+
   ! randomize the data - does not need to be fully random
   call random_seed()
   do j = lbound(arr, dim=2), ubound(arr, dim=2)
     do i = lbound(arr, dim=1), ubound(arr, dim=1)
       call random_number(harvest)
-      arr(i, j) = arr(i, j) + RANDOMIZE_FACT * harvest
+      arr(i, j) = arr(i, j) + (NOISE_LEVEL/NOISE_MAX) * harvest
     enddo
   enddo
 end subroutine create_signal
 
+subroutine create_linear_signal(arr, n, fdim, pad)
+  implicit none
+  real(kind=8), dimension(:, :), pointer :: arr
+  integer, intent(in) :: n, fdim, pad
+  integer :: i, f
+
+  do i = lbound(arr, dim=2), ubound(arr, dim=2)
+    do f = lbound(arr, dim=1), ubound(arr, dim=1)
+      arr(f, i) = i + (f - 1)
+    enddo
+  enddo
+
+end subroutine create_linear_signal
+
 subroutine store_arr(arr, file_name)
   implicit none
-  real(kind=8), dimension(:, :), intent(in) :: arr
+  real(kind=8), dimension(:, :), pointer :: arr
   character(len=*), intent(in) :: file_name
-  integer :: i, ios
+  integer :: i, fdim, ios
+  character(len=512) :: fmt
+  character(len=10)  :: fdim_c
   integer, parameter :: fid = 123
 
   open(unit=fid, file=trim(file_name), iostat=ios, action="write")
@@ -43,8 +68,12 @@ subroutine store_arr(arr, file_name)
     stop
   endif
 
+  fdim = size(arr, dim=1)
+  write(fdim_c, "(I10)") fdim
+  fmt = "(" //  trim(fdim_c) // "E20.5)"
+
   do i = lbound(arr, dim=2), ubound(arr, dim=2)
-    write(fid,'(3E20.5)') arr(:, i)
+    write(fid, trim(fmt)) arr(:, i)
   enddo
 
   close(unit=fid, iostat=ios)
@@ -57,12 +86,12 @@ subroutine normalize(arr, N)
 
   implicit none
 
-  real(kind=8), dimension(:, :), intent(inout) :: arr
+  real(kind=8), dimension(:, :), pointer :: arr
   integer, intent(in) :: N
 
   integer :: i, f
 
-  do i = lbound(arr, dim=2), ubound(arr, dim=2)
+  do i = 1, N
     do f = lbound(arr, dim=1), ubound(arr, dim=1)
       arr(f, i) = arr(f, i) / real(N)
     enddo
@@ -167,7 +196,7 @@ end subroutine cleanup_fft
 subroutine fft(this, arr)
   implicit none
   class(fft_handler), intent(inout) :: this
-  real(kind=8), dimension(:,:), intent(inout) :: arr
+  real(kind=8), dimension(:, :), pointer :: arr
 
   integer :: f
 
@@ -181,7 +210,7 @@ end subroutine fft
 subroutine ifft(this, arr)
   implicit none
   class(fft_handler), intent(inout) :: this
-  real(kind=8), dimension(:,:), intent(inout) :: arr
+  real(kind=8), dimension(:, :), pointer :: arr
 
   integer :: f
 
@@ -202,13 +231,16 @@ implicit none
 
 contains
 
-subroutine setup(arr, fdim, n)
+subroutine setup(arr, fdim, n, pad)
   implicit none
   real(kind=8), pointer, intent(inout) :: arr(:,:)
-  integer, intent(in) :: fdim, n
+  integer, intent(in) :: fdim, n, pad
   integer :: ierr, lb, ub
 
-  allocate(arr(1:fdim, 1:n), stat=ierr)
+  lb = 1 - pad
+  ub = n + pad
+
+  allocate(arr(1:fdim, lb:ub), stat=ierr)
   if (ierr /= 0) then
     print *, "Allocation failed"
     stop
@@ -243,6 +275,7 @@ program fftw_fortran_c
 
   integer, parameter :: N = 512
   integer, parameter :: fdim = 3
+  integer, parameter :: pad = 25
 
   integer :: err
   integer :: left_bound, right_bound
@@ -250,10 +283,10 @@ program fftw_fortran_c
   real(kind=8), dimension(:,:), pointer :: field_data
   type(fft_handler) :: fft_hndl
 
-  call setup(field_data, fdim, N)
+  call setup(field_data, fdim, N, pad)
   call fft_hndl%setup(field_data, fdim, N)
 
-  call create_signal(field_data, N, fdim)
+  call create_signal(field_data, N, fdim, pad)
   call store_arr(field_data, "fortran_pre.txt")
 
   call fft_hndl%forward(field_data)
