@@ -13,7 +13,7 @@ GNUPLOT=gnuplot
 PYTHON=$(BASE_CONDA)/bin/python
 
 .PHONY: all
-all: plot-adv-interface-c plot-fftw-simple plot-fftw-adv-interface-fortran
+all: plot-fftw-simple plot-adv-interface-c plot-adv-interface-fortran
 
 .PHONY: clean
 clean:
