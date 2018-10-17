@@ -5,7 +5,7 @@ module helper
 implicit none
 
 real(kind=8), parameter :: PI = 3.14159265358979323846264338327950288
-real(kind=8), parameter :: NOISE_LEVEL = 1.0   ! in percent
+real(kind=8), parameter :: NOISE_LEVEL = 10.0   ! in percent
 real(kind=8), parameter :: NOISE_MAX = 100.0
 
 contains
@@ -149,6 +149,13 @@ subroutine setup_fft(this, arr, fdim, n)
   integer, dimension(2) :: shape_arr
   integer :: out_ub, ierr
 
+  ! auxiliary parameters for plan planning
+  integer :: rank, howmany
+  integer, dimension(1) :: plan_length
+
+  integer :: istride, idist, ostride, odist
+  integer, dimension(1) :: inembed, onembed
+
   ! store transform specific parameters
   this%in_len = n
   this%fdim = fdim
@@ -164,12 +171,33 @@ subroutine setup_fft(this, arr, fdim, n)
   ! link outter array to
   this%in_arr(1:, 1:) => arr(1:fdim, 1:n)
 
+  !!! parameters for planning
+  ! general
+  rank = 1
+  plan_length = (/ this%in_len /)
+  howmany = this%fdim
+  ! input parameters
+  inembed = (/ this%in_len /)
+  istride = this%fdim
+  idist = 1
+  ! output parameters
+  onembed = (/ this%out_len /)
+  ostride = this%fdim
+  odist = 1
+
   ! create plans
-  this%plan_forward = fftw_plan_dft_r2c_1d( &
-      n, this%in_arr(1,1:), this%out_arr(1,1:), FFTW_MEASURE &
+  this%plan_forward = fftw_plan_many_dft_r2c( &
+      rank, plan_length, howmany, &
+      this%in_arr, inembed, istride, idist, &
+      this%out_arr, onembed, ostride, odist, &
+      FFTW_PATIENT &
     )
-  this%plan_backward = fftw_plan_dft_c2r_1d( &
-      n, this%out_arr(1,1:), this%in_arr(1,1:), FFTW_MEASURE &
+
+  this%plan_backward = fftw_plan_many_dft_c2r( &
+      rank, plan_length, howmany, &
+      this%out_arr, onembed, ostride, odist, &
+      this%in_arr, inembed, istride, idist, &
+      FFTW_PATIENT &
     )
 end subroutine setup_fft
 
@@ -193,32 +221,18 @@ subroutine cleanup_fft(this)
 
 end subroutine cleanup_fft
 
-subroutine fft(this, arr)
+subroutine fft(this)
   implicit none
   class(fft_handler), intent(inout) :: this
-  real(kind=8), dimension(:, :), pointer :: arr
 
-  integer :: f
-
-  do f = 1, this%fdim
-    call fftw_execute_dft_r2c( &
-        this%plan_forward, this%in_arr(f, 1:), this%out_arr(f, 1:) &
-      )
-  enddo
+  call fftw_execute_dft_r2c(this%plan_forward, this%in_arr, this%out_arr)
 end subroutine fft
 
-subroutine ifft(this, arr)
+subroutine ifft(this)
   implicit none
   class(fft_handler), intent(inout) :: this
-  real(kind=8), dimension(:, :), pointer :: arr
 
-  integer :: f
-
-  do f = 1, this%fdim
-    call fftw_execute_dft_c2r( &
-        this%plan_backward, this%out_arr(f, 1:), this%in_arr(f, 1:) &
-      )
-  enddo
+  call fftw_execute_dft_c2r(this%plan_backward, this%out_arr, this%in_arr)
 end subroutine ifft
 
 end module fft_utils
@@ -274,7 +288,7 @@ program fftw_fortran_c
   implicit none
 
   integer, parameter :: N = 512
-  integer, parameter :: fdim = 3
+  integer, parameter :: fdim = 2
   integer, parameter :: pad = 25
 
   integer :: err
@@ -289,8 +303,8 @@ program fftw_fortran_c
   call create_signal(field_data, N, fdim, pad)
   call store_arr(field_data, "fortran_pre.txt")
 
-  call fft_hndl%forward(field_data)
-  call fft_hndl%backward(field_data)
+  call fft_hndl%forward()
+  call fft_hndl%backward()
 
   call normalize(field_data, N)
   call store_arr(field_data, "fortran_post.txt")
