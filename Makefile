@@ -53,3 +53,6 @@ plot-adv-interface-fortran: bin/fftw-adv-interface-fortran
 		--linestyle "none" \
 		--title "Fortran interface (Diff)"
 	@rm fortran_*.txt
+
+bin/fftw-benchmark-direct-adv: fftw-benchmark-direct-adv.c
+	$(CC) $(C_COMPILE) $(C_INCLUDE) $(C_LINK) -o bin/fftw-benchmark-direct-adv fftw-benchmark-direct-adv.c
