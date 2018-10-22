@@ -1,11 +1,20 @@
 #include <stdio.h>
+#include <stdlib.h>
+#include <assert.h>
 #include <math.h>
 
 #include <fftw3.h>
 
+#ifndef ARRAY_LENGTH
+#define ARRAY_LENGTH 512
+#endif
+
 #define RE(a) a[0]
 #define IM(a) a[1]
 #define AS_DOUBLE(a) (double)(a)
+
+#define NOISE_LEVEL 10.0 // noise level in percent
+#define NOISE_MAX 100.0  // maximum noise level
 
 // create a signal of a shape of sin^2 with just one bump
 void create_signal(fftw_complex *arr, int N)
@@ -24,6 +33,9 @@ void create_signal(fftw_complex *arr, int N)
       RE(arr[i]) = pow(sin(AS_DOUBLE(i - boundary) / AS_DOUBLE(N - 2 * boundary) * M_PI), 2);
       IM(arr[i]) = pow(sin(AS_DOUBLE(i - boundary) / AS_DOUBLE(N - 2 * boundary) * M_PI), 2);
     }
+    // randomize data
+    RE(arr[i]) += (float)rand() / (float)(RAND_MAX) * (NOISE_LEVEL / NOISE_MAX);
+    IM(arr[i]) += (float)rand() / (float)(RAND_MAX) * (NOISE_LEVEL / NOISE_MAX);
   }
 }
 
@@ -37,9 +49,18 @@ void print_arr(fftw_complex *arr, int N, FILE *stream)
   }
 }
 
+// dump raw data
+void dump_raw(fftw_complex *arr, const int N, const char *file_name)
+{
+  FILE *fp = fopen(file_name, "wb");
+  assert(fp);
+  fwrite(arr, sizeof arr[0], N, fp);
+  fclose(fp);
+}
+
 int main(int argc, char const *argv[])
 {
-  int N = 512;
+  int N = ARRAY_LENGTH;
   fftw_complex *in, *out;
   fftw_plan p, p_inv;
 
@@ -56,6 +77,10 @@ int main(int argc, char const *argv[])
   fftw_execute(p_inv);
 
   print_arr(in, N, stderr);
+
+  // store raw data
+  dump_raw(in, N, "fftw_simple_in.raw");
+  dump_raw(out, N, "fftw_simple_out.raw");
 
   fftw_destroy_plan(p);
   fftw_destroy_plan(p_inv);

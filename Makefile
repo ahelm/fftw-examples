@@ -17,7 +17,7 @@ all: plot-fftw-simple plot-adv-interface-c plot-adv-interface-fortran
 
 .PHONY: clean
 clean:
-	@rm -rf bin/fftw-* *.mod adv_*.txt pre_*.txt fortran_*.txt
+	@rm -rf bin/fftw-* *.mod adv_*.txt pre_*.txt fortran_*.txt fftw_simple_*.raw
 
 bin/fftw-simple: fftw-simple.c
 	$(CC) $(C_COMPILE) $(C_INCLUDE) $(C_LINK) -o bin/fftw-simple fftw-simple.c
