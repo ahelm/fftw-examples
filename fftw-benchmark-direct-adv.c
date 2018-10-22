@@ -46,8 +46,9 @@ double execute_plans(fftw_plan *plans, const int N)
 int main(int argc, char const *argv[])
 {
   // tiny benchmark to see time difference between regular interface and advanced
-  int N = (int)pow(2, 100);
-  int vec_dim = 1;
+  int N = 1025;
+  int howmany_runs = 1000;
+  int vec_dim = 3;
 
   double *arr = fftw_malloc(sizeof(double) * N * vec_dim);
   int arr_offset = N;
@@ -58,11 +59,15 @@ int main(int argc, char const *argv[])
 
   for (int i = 0; i < vec_dim; i++)
   {
-    plans[i] = fftw_plan_dft_r2c_1d(N, arr + i * arr_offset, out + i * out_offset, FFTW_ESTIMATE);
+    plans[i] = fftw_plan_dft_r2c_1d(N, arr + i * arr_offset, out + i * out_offset, FFTW_ESTIMATE_PATIENT);
   }
 
-  double timing = execute_plans(plans, vec_dim);
-  printf("execution time = %g s\n", timing);
+  double timing = 0.0;
+  for (int n = 0; n < howmany_runs; n++)
+  {
+    timing += execute_plans(plans, vec_dim);
+  }
+  printf("execution time (%u loops)= %g s\n", howmany_runs, timing);
 
   for (int i = 0; i < vec_dim; i++)
   {
