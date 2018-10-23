@@ -81,6 +81,7 @@ void execute_benchmark(fftw_plan **plans, const int N, const int vec_dim, const 
     timing += execute_plans(plans, vec_dim);
   }
   fprintf(stdout, "%u, %u, %u, %e\n", N, howmany_runs, vec_dim, timing);
+  fflush(stdout);
 }
 
 int main(int argc, char const *argv[])
