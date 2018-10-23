@@ -87,7 +87,7 @@ void execute_benchmark(fftw_plan **plans, const int N, const int vec_dim, const 
 int main(int argc, char const *argv[])
 {
   int N_max = 4096;
-  int howmany_runs = 100;
+  int howmany_runs = 1000;
   int vec_dim = 6;
 
   double *arr;
