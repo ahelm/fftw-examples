@@ -61,10 +61,10 @@ bin/fftw-benchmark-advance-vecArray: fftw-benchmark-advance-vecArray.c
 	$(CC) $(C_COMPILE) $(C_INCLUDE) $(C_LINK) -o bin/fftw-benchmark-advance-vecArray fftw-benchmark-advance-vecArray.c
 
 benchmarks/vector_transform_direct.txt: bin/fftw-benchmark-direct-vecArray
-	bin/fftw-benchmark-direct-vecArray > benchmarks/vector_transform_direct.txt
+	bin/fftw-benchmark-direct-vecArray | tee benchmarks/vector_transform_direct.txt
 
 benchmarks/vector_transform_advance.txt: bin/fftw-benchmark-advance-vecArray
-	bin/fftw-benchmark-advance-vecArray > benchmarks/vector_transform_advance.txt
+	bin/fftw-benchmark-advance-vecArray | tee benchmarks/vector_transform_advance.txt
 
 .PHONY: benchmark-direct-advance
 benchmark-direct-advance: benchmarks/vector_transform_direct.txt bin/fftw-benchmark-advance-vecArray

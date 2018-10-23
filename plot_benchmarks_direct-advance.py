@@ -36,6 +36,7 @@ def main(f1, f2):
     case_adv_3d = benchData_adv[vec3d, :]
     case_adv_6d = benchData_adv[vec6d, :]
 
+    plt.figure(figsize=(7, 3), dpi=300)
     for direct, advance, label in [
         (case_direct_1d, case_adv_1d, "1d vector"),
         (case_direct_3d, case_adv_3d, "3d vector"),
@@ -46,6 +47,7 @@ def main(f1, f2):
 
     plt.xlabel("logical size N")
     plt.ylabel("relative time (advance/basic)")
+    plt.ylim(1e-2, 1e2)
     plt.xscale("log")
     plt.yscale("log")
     plt.legend()
