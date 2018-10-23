@@ -43,6 +43,43 @@ double execute_plans(fftw_plan *plans, const int N)
   return get_timing(&t);
 }
 
+int get_in_offset(const int N)
+{
+  return N;
+}
+
+int get_out_offset(const int N)
+{
+  return N / 2 + 1;
+}
+
+void setup_simple_1d(double *in, fftw_complex *out, fftw_plan *plans, const int N, const int vec_dim)
+{
+  in = fftw_malloc(sizeof(double) * N * vec_dim);
+  out = fftw_malloc(sizeof(fftw_complex) * (N / 2 + 1) * vec_dim);
+  plans = malloc(sizeof(fftw_plan) * vec_dim);
+
+  for (int i = 0; i < vec_dim; i++)
+  {
+    plans[i] = fftw_plan_dft_r2c_1d(
+        N,
+        in + i * get_in_offset(N),
+        out + i * get_out_offset(N),
+        FFTW_ESTIMATE_PATIENT);
+  }
+}
+
+void cleanup_simple_1d(double *in, fftw_complex *out, fftw_plan *plans, const int vec_dim)
+{
+  for (int i = 0; i < vec_dim; i++)
+  {
+    fftw_destroy_plan(plans[i]);
+  }
+  fftw_free(plans);
+  fftw_free(in);
+  fftw_free(out);
+}
+
 int main(int argc, char const *argv[])
 {
   // tiny benchmark to see time difference between regular interface and advanced
@@ -50,30 +87,18 @@ int main(int argc, char const *argv[])
   int howmany_runs = 1000;
   int vec_dim = 3;
 
-  double *arr = fftw_malloc(sizeof(double) * N * vec_dim);
-  int arr_offset = N;
-  fftw_complex *out = fftw_malloc(sizeof(fftw_complex) * (N / 2 + 1) * vec_dim);
-  int out_offset = (N / 2 + 1);
+  double *arr;
+  fftw_complex *out;
+  fftw_plan *plans;
 
-  fftw_plan *plans = malloc(sizeof(fftw_plan) * vec_dim);
-
-  for (int i = 0; i < vec_dim; i++)
-  {
-    plans[i] = fftw_plan_dft_r2c_1d(N, arr + i * arr_offset, out + i * out_offset, FFTW_ESTIMATE_PATIENT);
-  }
+  setup_simple_1d(arr, out, plans, N, vec_dim);
 
   double timing = 0.0;
   for (int n = 0; n < howmany_runs; n++)
   {
     timing += execute_plans(plans, vec_dim);
   }
-  printf("execution time (%u loops)= %g s\n", howmany_runs, timing);
+  printf("execution time (%u loops)= %e s\n", howmany_runs, timing);
 
-  for (int i = 0; i < vec_dim; i++)
-  {
-    fftw_destroy_plan(plans[i]);
-  }
-  fftw_free(plans);
-  fftw_free(arr);
-  fftw_free(out);
+  cleanup_simple_1d(arr, out, plans, vec_dim);
 }
