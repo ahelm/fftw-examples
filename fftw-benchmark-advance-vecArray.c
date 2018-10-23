@@ -30,55 +30,61 @@ double get_timing(timing_t *t_data)
 // ------------------------------------------------------------------------------------
 // ------------------------------------------------------------------------------------
 
-double execute_plans(fftw_plan **plans, const int N)
+double execute_plans(fftw_plan **plan, const int N)
 {
   timing_t t;
 
   tick(&t);
-  for (int i = 0; i < N; i++)
-  {
-    fftw_plan *plan = *plans + i;
-    fftw_execute(*plan);
-  }
+  fftw_execute(**plan);
   tock(&t);
   return get_timing(&t);
 }
 
-void setup_simple_1d(double **in, fftw_complex **out, fftw_plan **plans, const int N, const int vec_dim)
+void setup_simple_1d(double **in, fftw_complex **out, fftw_plan **plan, const int N, const int vec_dim)
 {
   *in = fftw_malloc(sizeof(double) * N * vec_dim);
   *out = fftw_malloc(sizeof(fftw_complex) * (N / 2 + 1) * vec_dim);
-  *plans = malloc(sizeof(fftw_plan) * vec_dim);
+  *plan = fftw_malloc(sizeof(fftw_plan));
 
-  for (int i = 0; i < vec_dim; i++)
-  {
-    fftw_plan *plan = *plans + i;
-    *plan = fftw_plan_dft_r2c_1d(
-        N,
-        *in + i * N,
-        *out + i * (N / 2 + 1),
-        FFTW_ESTIMATE);
-  }
+  int n[] = {N};
+  int idist = N;
+  int odist = N / 2 + 1;
+
+  int istride = 1;
+  int ostride = 1;
+
+  int inembed[] = {N};
+  int onembed[] = {N / 2 + 1};
+
+  **plan = fftw_plan_many_dft_r2c(
+      1,
+      n,
+      vec_dim,
+      *in,
+      inembed,
+      istride,
+      idist,
+      *out,
+      onembed,
+      ostride,
+      odist,
+      FFTW_ESTIMATE);
 }
 
-void cleanup_simple_1d(double **in, fftw_complex **out, fftw_plan **plans, const int vec_dim)
+void cleanup_simple_1d(double **in, fftw_complex **out, fftw_plan **plan, const int vec_dim)
 {
-  for (int i = 0; i < vec_dim; i++)
-  {
-    fftw_plan *plan = *plans + i;
-    fftw_destroy_plan(*plan);
-  }
-  fftw_free(*plans);
+  fftw_destroy_plan(**plan);
+  fftw_free(*plan);
   fftw_free(*in);
   fftw_free(*out);
 }
 
-void execute_benchmark(fftw_plan **plans, const int N, const int vec_dim, const int howmany_runs)
+void execute_benchmark(fftw_plan **plan, const int N, const int vec_dim, const int howmany_runs)
 {
   double timing = 0.0;
   for (int n = 0; n < howmany_runs; n++)
   {
-    timing += execute_plans(plans, vec_dim);
+    timing += execute_plans(plan, vec_dim);
   }
   fprintf(stdout, "%u, %u, %u, %e\n", N, howmany_runs, vec_dim, timing);
 }
@@ -91,7 +97,7 @@ int main(int argc, char const *argv[])
 
   double *arr;
   fftw_complex *out;
-  fftw_plan *plans;
+  fftw_plan *plan;
 
   // prints header
   fprintf(stdout, "# N, how_many_runs, vec_dim, total_time[s]\n");
@@ -100,9 +106,9 @@ int main(int argc, char const *argv[])
   {
     for (int N = 1; N <= N_max; N++)
     {
-      setup_simple_1d(&arr, &out, &plans, N, v);
-      execute_benchmark(&plans, N, v, howmany_runs);
-      cleanup_simple_1d(&arr, &out, &plans, v);
+      setup_simple_1d(&arr, &out, &plan, N, v);
+      execute_benchmark(&plan, N, v, howmany_runs);
+      cleanup_simple_1d(&arr, &out, &plan, v);
     }
   }
 }
