@@ -17,7 +17,7 @@ all: plot-fftw-simple plot-adv-interface-c plot-adv-interface-fortran
 
 .PHONY: clean
 clean:
-	@rm -rf bin/fftw-* *.mod adv_*.txt pre_*.txt fortran_*.txt fftw_simple_*.raw
+	@rm -rf bin/fftw-* *.mod adv_*.txt pre_*.txt fortran_*.txt fftw_simple_*.raw benchmark/vector_transform_*.txt
 
 bin/fftw-simple: fftw-simple.c
 	$(CC) $(C_COMPILE) $(C_INCLUDE) $(C_LINK) -o bin/fftw-simple fftw-simple.c
@@ -56,3 +56,11 @@ plot-adv-interface-fortran: bin/fftw-adv-interface-fortran
 
 bin/fftw-benchmark-direct-vecArray: fftw-benchmark-direct-vecArray.c
 	$(CC) $(C_COMPILE) $(C_INCLUDE) $(C_LINK) -o bin/fftw-benchmark-direct-vecArray fftw-benchmark-direct-vecArray.c
+
+bin/fftw-benchmark-advance-vecArray: fftw-benchmark-advance-vecArray.c
+	$(CC) $(C_COMPILE) $(C_INCLUDE) $(C_LINK) -o bin/fftw-benchmark-advance-vecArray fftw-benchmark-advance-vecArray.c
+
+.PHONY: benchmark-direct-advance
+benchmark-direct-advance: bin/fftw-benchmark-direct-vecArray bin/fftw-benchmark-advance-vecArray
+	bin/fftw-benchmark-direct-vecArray > benchmarks/vector_transform_direct_OSX-Mojave.txt
+	bin/fftw-benchmark-advance-vecArray > benchmarks/vector_transform_advance_OSX-Mojave.txt
