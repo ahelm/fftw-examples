@@ -30,54 +30,57 @@ double get_timing(timing_t *t_data)
 // ------------------------------------------------------------------------------------
 // ------------------------------------------------------------------------------------
 
-double execute_plans(fftw_plan *plans, const int N)
+double execute_plans(fftw_plan **plans, const int N)
 {
   timing_t t;
 
   tick(&t);
   for (int i = 0; i < N; i++)
   {
-    fftw_execute(plans[i]);
+    fftw_plan *plan = *plans + i;
+    fftw_execute(*plan);
   }
   tock(&t);
   return get_timing(&t);
 }
 
-int get_in_offset(const int N)
+void setup_simple_1d(double **in, fftw_complex **out, fftw_plan **plans, const int N, const int vec_dim)
 {
-  return N;
-}
-
-int get_out_offset(const int N)
-{
-  return N / 2 + 1;
-}
-
-void setup_simple_1d(double *in, fftw_complex *out, fftw_plan *plans, const int N, const int vec_dim)
-{
-  in = fftw_malloc(sizeof(double) * N * vec_dim);
-  out = fftw_malloc(sizeof(fftw_complex) * (N / 2 + 1) * vec_dim);
-  plans = malloc(sizeof(fftw_plan) * vec_dim);
+  *in = fftw_malloc(sizeof(double) * N * vec_dim);
+  *out = fftw_malloc(sizeof(fftw_complex) * (N / 2 + 1) * vec_dim);
+  *plans = malloc(sizeof(fftw_plan) * vec_dim);
 
   for (int i = 0; i < vec_dim; i++)
   {
-    plans[i] = fftw_plan_dft_r2c_1d(
+    fftw_plan *plan = *plans + i;
+    *plan = fftw_plan_dft_r2c_1d(
         N,
-        in + i * get_in_offset(N),
-        out + i * get_out_offset(N),
+        *in + i * N,
+        *out + i * (N / 2 + 1),
         FFTW_ESTIMATE_PATIENT);
   }
 }
 
-void cleanup_simple_1d(double *in, fftw_complex *out, fftw_plan *plans, const int vec_dim)
+void cleanup_simple_1d(double **in, fftw_complex **out, fftw_plan **plans, const int vec_dim)
 {
   for (int i = 0; i < vec_dim; i++)
   {
-    fftw_destroy_plan(plans[i]);
+    fftw_plan *plan = *plans + i;
+    fftw_destroy_plan(*plan);
   }
-  fftw_free(plans);
-  fftw_free(in);
-  fftw_free(out);
+  fftw_free(*plans);
+  fftw_free(*in);
+  fftw_free(*out);
+}
+
+void execute_benchmark(fftw_plan **plans, const int vec_dim, const int howmany_runs)
+{
+  double timing = 0.0;
+  for (int n = 0; n < howmany_runs; n++)
+  {
+    timing += execute_plans(plans, vec_dim);
+  }
+  printf("execution time (%u loops) = %e s\n", howmany_runs, timing);
 }
 
 int main(int argc, char const *argv[])
@@ -85,20 +88,13 @@ int main(int argc, char const *argv[])
   // tiny benchmark to see time difference between regular interface and advanced
   int N = 1025;
   int howmany_runs = 1000;
-  int vec_dim = 3;
+  int vec_dim = 1;
 
   double *arr;
   fftw_complex *out;
   fftw_plan *plans;
 
-  setup_simple_1d(arr, out, plans, N, vec_dim);
-
-  double timing = 0.0;
-  for (int n = 0; n < howmany_runs; n++)
-  {
-    timing += execute_plans(plans, vec_dim);
-  }
-  printf("execution time (%u loops)= %e s\n", howmany_runs, timing);
-
-  cleanup_simple_1d(arr, out, plans, vec_dim);
+  setup_simple_1d(&arr, &out, &plans, N, vec_dim);
+  execute_benchmark(&plans, vec_dim, howmany_runs);
+  cleanup_simple_1d(&arr, &out, &plans, vec_dim);
 }
