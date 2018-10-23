@@ -57,7 +57,7 @@ void setup_simple_1d(double **in, fftw_complex **out, fftw_plan **plans, const i
         N,
         *in + i * N,
         *out + i * (N / 2 + 1),
-        FFTW_ESTIMATE_PATIENT);
+        FFTW_ESTIMATE);
   }
 }
 
@@ -73,28 +73,36 @@ void cleanup_simple_1d(double **in, fftw_complex **out, fftw_plan **plans, const
   fftw_free(*out);
 }
 
-void execute_benchmark(fftw_plan **plans, const int vec_dim, const int howmany_runs)
+void execute_benchmark(fftw_plan **plans, const int N, const int vec_dim, const int howmany_runs)
 {
   double timing = 0.0;
   for (int n = 0; n < howmany_runs; n++)
   {
     timing += execute_plans(plans, vec_dim);
   }
-  printf("execution time (%u loops) = %e s\n", howmany_runs, timing);
+  fprintf(stdout, "%u, %u, %u, %e\n", N, howmany_runs, vec_dim, timing);
 }
 
 int main(int argc, char const *argv[])
 {
-  // tiny benchmark to see time difference between regular interface and advanced
-  int N = 1025;
+  int N_max = 4096;
   int howmany_runs = 1000;
-  int vec_dim = 1;
+  int vec_dim = 6;
 
   double *arr;
   fftw_complex *out;
   fftw_plan *plans;
 
-  setup_simple_1d(&arr, &out, &plans, N, vec_dim);
-  execute_benchmark(&plans, vec_dim, howmany_runs);
-  cleanup_simple_1d(&arr, &out, &plans, vec_dim);
+  // prints header
+  fprintf(stdout, "# N, how_many_runs, vec_dim, total_time[s]\n");
+
+  for (int v = 1; v <= vec_dim; v++)
+  {
+    for (int N = 1; N <= N_max; N++)
+    {
+      setup_simple_1d(&arr, &out, &plans, N, v);
+      execute_benchmark(&plans, N, v, howmany_runs);
+      cleanup_simple_1d(&arr, &out, &plans, v);
+    }
+  }
 }

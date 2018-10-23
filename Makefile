@@ -1,7 +1,7 @@
 CC=gcc-8
 FORTRAN=gfortran-8
 
-C_COMPILE = -std=c99 -g
+C_COMPILE = -std=c99 -O3
 C_INCLUDE = -I $(shell brew --prefix fftw)/include
 C_LINK	  = -L $(shell brew --prefix fftw)/lib -l fftw3 -l m
 
@@ -54,5 +54,5 @@ plot-adv-interface-fortran: bin/fftw-adv-interface-fortran
 		--title "Fortran interface (Diff)"
 	@rm fortran_*.txt
 
-bin/fftw-benchmark-direct-adv: fftw-benchmark-direct-adv.c
-	$(CC) $(C_COMPILE) $(C_INCLUDE) $(C_LINK) -o bin/fftw-benchmark-direct-adv fftw-benchmark-direct-adv.c
+bin/fftw-benchmark-direct-vecArray: fftw-benchmark-direct-vecArray.c
+	$(CC) $(C_COMPILE) $(C_INCLUDE) $(C_LINK) -o bin/fftw-benchmark-direct-vecArray fftw-benchmark-direct-vecArray.c
